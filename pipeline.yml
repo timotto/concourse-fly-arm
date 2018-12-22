@@ -18,6 +18,8 @@ jobs:
       inputs:
       - name: concourse
       - name: concourse-source
+        # remove `path` for Concourse < 4.2.2
+        path: concourse-source/src/github.com/concourse/concourse
       outputs:
       - name: artifacts
       - name: ver
@@ -29,8 +31,9 @@ jobs:
           target=$PWD/artifacts
           tag=$(cat concourse/tag)
           cd concourse-source
-          export GOPATH=$PWD
-          cd src/github.com/concourse/fly
+          # set `GOPATH` for Concourse < 4.2.2
+          # export GOPATH=$PWD
+          cd src/github.com/concourse/concourse/fly
 
           GOARCH=arm64 go build
           cp fly $target/fly-arm64
