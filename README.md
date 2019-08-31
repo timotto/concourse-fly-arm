@@ -2,4 +2,4 @@
 
 This is a Concourse pipeline to build the fly CLI for ARM.
 
-The `-termux` binaries have the location of `/etc/resolv.conf` changed to `/data/data/com.termux/files/usr/etc/resolv.conf` to make them work in the excellent [Termux](https://termux.com/) Android app.
+It uses [xgo](https://github.com/karalabe/xgo) to cross compile the binaries as since version 5.4.0 a plain go cross compile is not possible any longer.

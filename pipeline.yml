@@ -1,59 +1,55 @@
 jobs:
 - name: build
   plan:
-  - aggregate:
-    - get: concourse
-      trigger: true
-      params:
-        globs: [none]
-    - get: concourse-source
+  - get: concourse
+    trigger: true
+    params:
+      globs: [none]
+      include_source_tarball: true
   - task: build
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: golang
+          repository: karalabe/xgo-latest
           tag: latest
       inputs:
       - name: concourse
-      - name: concourse-source
-        # remove `path` for Concourse < 4.2.2
-        path: concourse-source/src/github.com/concourse/concourse
+      caches:
+      - path: deps-cache
       outputs:
       - name: artifacts
       - name: ver
+      params:
+        TARGETS: linux/arm-5 linux/arm-6 linux/arm-7 linux/arm64 android/* ios/*
       run:
         path: bash
         args:
         - -exc
         - |
           target=$PWD/artifacts
-          tag=$(cat concourse/tag)
-          cd concourse-source
-          # set `GOPATH` for Concourse < 4.2.2
-          # export GOPATH=$PWD
-          cd src/github.com/concourse/concourse/fly
 
-          GOARCH=arm64 go build
-          cp fly $target/fly-arm64
+          mkdir -p /build
+          rm -rf /deps-cache
+          ln -s $PWD/deps-cache /deps-cache
 
-          for GOARM in 5 6 7; do
-            GOARCH=arm go build
-            cp fly $target/fly-arm${GOARM}
-          done
-
-          for file in $(grep '/etc/resolv.conf' /usr/local/go/src/net/* -l 2> /dev/null); do
-            sed -i $file -es'^/etc/resolv.conf^/data/data/com.termux/files/usr/etc/resolv.conf^'
-          done
+          mkdir -p concourse-source/src/github.com/concourse/
+          tar \
+            -zx \
+            -C concourse-source/src/github.com/concourse/ \
+            -f concourse/source.tar.gz
           
-          GOARCH=arm64 go build
-          cp fly $target/fly-arm64-termux
+          mv -v \
+            concourse-source/src/github.com/concourse/concourse-concourse-* \
+            concourse-source/src/github.com/concourse/concourse
 
-          for GOARM in 5 6 7; do
-            GOARCH=arm go build
-            cp fly $target/fly-arm${GOARM}-termux
-          done
+          cd concourse-source
+          export EXT_GOPATH=$PWD
+
+          cd /build
+          /build.sh github.com/concourse/concourse/fly
+          cp -v fly-* $target/
 
   - put: fly-release
     params:
@@ -68,14 +64,10 @@ resources:
   source:
     owner: concourse
     repository: concourse
-    access_token: ((github_access_token))
-- name: concourse-source
-  type: git
-  source:
-    uri: https://github.com/concourse/concourse.git
+    access_token: ((github.access_token))
 - name: fly-release
   type: github-release
   source:
     owner: timotto
     repository: concourse-fly-arm
-    access_token: ((github_access_token))
+    access_token: ((github.access_token))
